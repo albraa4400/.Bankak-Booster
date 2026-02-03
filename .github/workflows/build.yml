@@ -1,4 +1,4 @@
-name: Manual NDK Update Build
+name: Ultimate Clean Build
 on: [push, workflow_dispatch]
 jobs:
   build:
@@ -6,22 +6,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install System Tools
+      - name: Deep System Clean
+        run: |
+          rm -rf .buildozer
+          rm -rf ~/.buildozer
+
+      - name: Install Dependencies
         run: |
           sudo apt update
           sudo apt install -y python3-pip build-essential git zip unzip zlib1g-dev libffi-dev libssl-dev autoconf automake libtool
           pip3 install --user --upgrade buildozer cython kivy
 
-      - name: Manual NDK Download (Your Idea)
+      - name: Force Update Settings
         run: |
-          # تحميل إصدار 25b يدوياً ووضعه في مكان يراه النظام إجبارياً
-          wget https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
-          unzip -q android-ndk-r25b-linux.zip
-          # إخبار النظام بمكان الـ NDK الجديد
-          echo "ANDROID_NDK_HOME=$(pwd)/android-ndk-r25b" >> $GITHUB_ENV
+          # هذه الأوامر ستقوم بتعديل ملف الـ spec آلياً لإضافة NDK 25b و API 33
+          sed -i 's/^#\? \?android.api = .*/android.api = 33/' buildozer.spec
+          sed -i 's/^#\? \?android.ndk = .*/android.ndk = 25b/' buildozer.spec
+          sed -i 's/^#\? \?android.ndk_path = .*/android.ndk_path = /' buildozer.spec
 
-      - name: Run Buildozer
+      - name: Build APK
         run: |
-          rm -rf .buildozer
-          # تشغيل البناء مع الإشارة للمجلد الذي حملناه يدوياً
+          # الآن سيبدأ البناء بالإعدادات الصحيحة التي أضفناها بالأعلى
           yes | buildozer android debug
+      
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankak-Booster-Final
+          path: bin/*.apk
