@@ -5,15 +5,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Install Buildozer
+      - name: Install dependencies
         run: |
           sudo apt update
           sudo apt install -y python3-pip build-essential git python3 zip unzip zlib1g-dev libffi-dev libssl-dev
           pip3 install --user --upgrade buildozer cython kivy
-      - name: Build
-        run: |
-          buildozer android debug
-      - name: Upload
+      - name: Build with Buildozer
+        run: buildozer android debug
+      - name: Upload APK
         uses: actions/upload-artifact@v2
         with:
           name: Bankak-App
