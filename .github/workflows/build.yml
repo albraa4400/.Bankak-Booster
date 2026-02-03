@@ -1,4 +1,4 @@
-name: Ultimate Path Fix
+name: Global Path Recovery
 on: [push, workflow_dispatch]
 jobs:
   build:
@@ -12,43 +12,40 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Space Cleanup
+      - name: Light Space Clean
         run: |
-          # تنظيف حذر للمساحة لضمان عدم مسح أدوات أندرويد الأساسية
-          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost
+          # تنظيف حذر جداً للحفاظ على ملفات النظام الأساسية
+          sudo rm -rf /usr/share/dotnet /opt/ghc
           rm -rf .buildozer
 
-      - name: Force Install Tools & Fix Path
+      - name: Fix Paths & Accept Licenses
         run: |
           pip3 install --user --upgrade buildozer cython==0.29.33 kivy
-          # تعريف مسار الـ SDK يدوياً لضمان عمل sdkmanager
-          export ANDROID_HOME=$ANDROID_SDK_ROOT
-          export PATH=$PATH:$ANDROID_HOME/tools/bin:$ANDROID_HOME/platform-tools
           
-          # قبول الرخص بطريقة آمنة لا تسبب Broken pipe
-          yes | sdkmanager --licenses || true
-          # تثبيت الأدوات التي حددتها أنت
-          sdkmanager "platforms;android-33" "build-tools;33.0.0" "ndk;25.2.9519653"
+          # استعادة مسارات أندرويد الضائعة لتعمل أداة sdkmanager
+          export ANDROID_HOME=$ANDROID_SDK_ROOT
+          export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/tools/bin:$ANDROID_HOME/platform-tools
+          
+          # استخدام المسار الكامل للأداة لضمان عملها وتجنب خطأ (Command not found)
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-33" "build-tools;33.0.0" "ndk;25.2.9519653"
 
-      - name: Final Spec Injection
+      - name: Force Spec Injection
         run: |
           sed -i 's/^#\? \?android.api = .*/android.api = 33/' buildozer.spec
           sed -i 's/^#\? \?android.ndk = .*/android.ndk = 25.2.9519653/' buildozer.spec
           sed -i 's/^#\? \?android.archs = .*/android.archs = arm64-v8a/' buildozer.spec
 
-      - name: Build APK (Aggressive Capture)
+      - name: Build APK (Aggressive Mode)
         run: |
-          export APP_ANDROID_ACCEPT_SDK_LICENSE=1
           export BUILDOZER_ALLOW_ORG_NAME_START=1
-          # محاولة البناء مع الاستمرار في حال وجود تحذيرات غير قاتلة
+          # استخدام وضع صامت لتقليل فرص انكسار الأنبوب (Broken pipe)
           buildozer -v android debug || true 
 
-      - name: Emergency Path Search & Upload
+      - name: Global APK Search & Upload
         uses: actions/upload-artifact@v4
         with:
-          name: Bankak-Booster-Success
-          # البحث العميق عن الملف في كل مكان ممكن
+          name: Bankak-Booster-Final
           path: |
             bin/*.apk
             .buildozer/android/platform/build-*/dists/*/bin/*.apk
-          if-no-files-found: error
