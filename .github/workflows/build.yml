@@ -1,24 +1,27 @@
-name: Build APK Final Fix
+name: Manual NDK Update Build
 on: [push, workflow_dispatch]
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install dependencies
+
+      - name: Install System Tools
         run: |
           sudo apt update
-          sudo apt install -y python3-pip build-essential git python3 zip unzip zlib1g-dev libffi-dev libssl-dev autoconf automake libtool
+          sudo apt install -y python3-pip build-essential git zip unzip zlib1g-dev libffi-dev libssl-dev autoconf automake libtool
           pip3 install --user --upgrade buildozer cython kivy
-      - name: Hard Reset and Build
+
+      - name: Manual NDK Download (Your Idea)
         run: |
-          # مسح شامل للمجلدات والمؤقتات لضمان التحديث 37
+          # تحميل إصدار 25b يدوياً ووضعه في مكان يراه النظام إجبارياً
+          wget https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
+          unzip -q android-ndk-r25b-linux.zip
+          # إخبار النظام بمكان الـ NDK الجديد
+          echo "ANDROID_NDK_HOME=$(pwd)/android-ndk-r25b" >> $GITHUB_ENV
+
+      - name: Run Buildozer
+        run: |
           rm -rf .buildozer
-          rm -rf ~/.buildozer
-          # تشغيل البناء مع قبول الرخص إجبارياً
+          # تشغيل البناء مع الإشارة للمجلد الذي حملناه يدوياً
           yes | buildozer android debug
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankak-App-Success
-          path: bin/*.apk
