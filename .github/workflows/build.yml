@@ -1,17 +1,27 @@
 name: Build Bankak APK
-on: [push]
+on: [push, workflow_dispatch]
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Install Buildozer dependencies
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.8'
+      - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3-pip build-essential git python3 zip unzip zlib1g-dev libffi-dev libssl-dev
-          pip3 install --user --upgrade buildozer cython
-      - name: Build with Buildozer
-        run: buildozer android debug
+          sudo apt-get install -y build-essential git python3 zip unzip zlib1g-dev libffi-dev libssl-dev libltdl-dev
+          pip install --upgrade pip
+          pip install buildozer cython kivy
+      - name: Build APK
+        run: |
+          yes | buildozer init
+          # تعديل الملف ليقرأ كود الواجهة الخاص بك
+          sed -i 's/package.name = myapp/package.name = bankakbooster/' buildozer.spec
+          sed -i 's/source.include_exts = py,png,jpg,kv,atlas/source.include_exts = py/' buildozer.spec
+          buildozer android debug
       - name: Upload APK
         uses: actions/upload-artifact@v2
         with:
