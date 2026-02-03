@@ -1,4 +1,4 @@
-name: Ultimate Clean Build
+name: Final Success Build
 on: [push, workflow_dispatch]
 jobs:
   build:
@@ -6,10 +6,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Deep System Clean
+      - name: Free Disk Space
         run: |
-          rm -rf .buildozer
-          rm -rf ~/.buildozer
+          sudo rm -rf /usr/share/dotnet /opt/ghc "/usr/local/share/boost"
 
       - name: Install Dependencies
         run: |
@@ -17,16 +16,19 @@ jobs:
           sudo apt install -y python3-pip build-essential git zip unzip zlib1g-dev libffi-dev libssl-dev autoconf automake libtool
           pip3 install --user --upgrade buildozer cython kivy
 
-      - name: Force Update Settings
+      - name: Force NDK 25b in Settings
         run: |
-          # هذه الأوامر ستقوم بتعديل ملف الـ spec آلياً لإضافة NDK 25b و API 33
-          sed -i 's/^#\? \?android.api = .*/android.api = 33/' buildozer.spec
+          # تأكيد الإعدادات المطلوبة تقنياً
           sed -i 's/^#\? \?android.ndk = .*/android.ndk = 25b/' buildozer.spec
+          sed -i 's/^#\? \?android.api = .*/android.api = 33/' buildozer.spec
           sed -i 's/^#\? \?android.ndk_path = .*/android.ndk_path = /' buildozer.spec
+          sed -i 's/^#\? \?android.accept_sdk_license = .*/android.accept_sdk_license = True/' buildozer.spec
 
       - name: Build APK
         run: |
-          # الآن سيبدأ البناء بالإعدادات الصحيحة التي أضفناها بالأعلى
+          rm -rf .buildozer
+          # إضافة متغير البيئة لضمان عدم توقف السيرفر للانتظار
+          export APP_ANDROID_ACCEPT_SDK_LICENSE=1
           yes | buildozer android debug
       
       - name: Upload APK
