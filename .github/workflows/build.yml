@@ -12,9 +12,6 @@ jobs:
           pip3 install --user --upgrade buildozer cython kivy
       - name: Build
         run: |
-          buildozer init
-          sed -i 's/source.include_exts = py,png,jpg,kv,atlas/source.include_exts = py/' buildozer.spec
-          sed -i 's/#source.include_patterns = assets\/\*,images\/\*.png/source.filename = .gui_bank.py/' buildozer.spec
           buildozer android debug
       - name: Upload
         uses: actions/upload-artifact@v2
