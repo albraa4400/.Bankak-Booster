@@ -17,3 +17,4 @@ jobs:
         with:
           name: Bankak-App
           path: bin/*.apk
+          
