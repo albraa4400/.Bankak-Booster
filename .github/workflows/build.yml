@@ -12,9 +12,9 @@ jobs:
           pip3 install --user --upgrade buildozer cython kivy
       - name: Build with Buildozer
         run: |
-          # تنظيف البيئة لضمان عدم حدوث التعارض السابق
+          # تنظيف أي محاولات سابقة لضمان عدم حدوث تعارض
           rm -rf .buildozer
-          # تشغيل البناء بطريقة تمنع خطأ Broken pipe وتضمن قبول الرخص
+          # قبول الرخص وتشغيل البناء مع إجبار النظام على استخدام الإعدادات الجديدة
           yes | buildozer android debug
       - name: Upload APK
         uses: actions/upload-artifact@v4
