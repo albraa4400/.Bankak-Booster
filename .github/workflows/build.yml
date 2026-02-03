@@ -1,51 +1,39 @@
-name: Force Completion Build
+name: Final Recovery Build
 on: [push, workflow_dispatch]
 jobs:
   build:
     runs-on: ubuntu-latest
-    # إجبار المهمة على الاستمرار حتى لو استغرقت وقتاً طويلاً
-    timeout-minutes: 60 
     steps:
       - uses: actions/checkout@v4
 
-      - name: System Cleanup
+      - name: Max Space Clean
         run: |
           sudo rm -rf /usr/share/dotnet /opt/ghc "/usr/local/share/boost" /usr/local/lib/android
           rm -rf .buildozer
 
-      - name: Install Tools
+      - name: Install Base Tools
         run: |
           sudo apt update
           sudo apt install -y python3-pip build-essential git zip unzip zlib1g-dev libffi-dev libssl-dev autoconf automake libtool
-          pip3 install --user --upgrade buildozer cython kivy
+          pip3 install --user --upgrade buildozer cython
 
-      - name: Force Settings Injection
+      - name: Strict Spec Update
         run: |
-          # تقليل المعماريات لضمان عدم "اختناق" السيرفر وفصله (حل صورة 1000501919)
+          # تقليل المتطلبات للحد الأدنى جداً لمنع انفجار الذاكرة (Broken pipe)
+          sed -i 's/^#\? \?requirements = .*/requirements = python3,kivy/' buildozer.spec
           sed -i 's/^#\? \?android.archs = .*/android.archs = arm64-v8a/' buildozer.spec
-          sed -i 's/^#\? \?requirements = .*/requirements = python3,kivy,requests,certifi,chardet,idna,urllib3/' buildozer.spec
-          sed -i 's/^#\? \?android.ndk = .*/android.ndk = 25b/' buildozer.spec
-          sed -i 's/^#\? \?android.api = .*/android.api = 33/' buildozer.spec
+          sed -i 's/^#\? \?android.api = .*/android.api = 31/' buildozer.spec
+          sed -i 's/^#\? \?android.ndk = .*/android.ndk = 23b/' buildozer.spec
 
-      - name: Build APK (Force Mode)
-        # السطر السحري: إجبار الخطوة على النجاح حتى لو فشل البرمجي
-        continue-on-error: true 
+      - name: Fast Build
         run: |
-          export APP_ANDROID_ACCEPT_SDK_LICENSE=1
           export BUILDOZER_ALLOW_ORG_NAME_START=1
-          
-          # محاولة البناء، وإذا فشل، سيحاول مرة أخرى تلقائياً دون إغلاق العملية
-          (yes | buildozer -v android debug) || (echo "محاولة ثانية لتخطي الانقطاع..." && yes | buildozer -v android debug)
-
-      - name: Diagnostic Report (If Build Failed)
-        if: always()
-        run: |
-          echo "تم إجبار العملية على الاستمرار. إذا لم يظهر ملف APK في الأسفل، راجع سجلات 'Build APK' بدقة."
-
-      - name: Upload APK
+          # استخدام سطر بناء مختصر جداً وأسرع
+          buildozer android debug || buildozer android debug
+      
+      - name: Force Upload Result
         uses: actions/upload-artifact@v4
         with:
-          name: Bankak-Booster-Final
-          path: bin/*.apk
-        # إجبار الرفع على العمل فقط إذا وُجد الملف
-        if: always() 
+          name: Bankak-App-Final
+          path: .buildozer/android/platform/build-arm64-v8a/dists/*/bin/*.apk
+          if-no-files-found: error
