@@ -1,4 +1,4 @@
-name: Final Success Build
+name: Final Booster Build
 on: [push, workflow_dispatch]
 jobs:
   build:
@@ -6,33 +6,34 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Free Disk Space
+      - name: Maximize Build Space
         run: |
-          sudo rm -rf /usr/share/dotnet /opt/ghc "/usr/local/share/boost"
+          # تفريغ مساحة لضمان عدم انقطاع الاتصال (Broken pipe)
+          sudo rm -rf /usr/share/dotnet /opt/ghc "/usr/local/share/boost" /usr/local/lib/android
+          rm -rf .buildozer
 
-      - name: Install Dependencies
+      - name: Install Tools
         run: |
           sudo apt update
           sudo apt install -y python3-pip build-essential git zip unzip zlib1g-dev libffi-dev libssl-dev autoconf automake libtool
           pip3 install --user --upgrade buildozer cython kivy
 
-      - name: Force NDK 25b in Settings
+      - name: Force Optimizations (Your Requirements)
         run: |
-          # تأكيد الإعدادات المطلوبة تقنياً
+          # تعديل ملف spec آلياً لتقليل حجم العمل وضمان النجاح
+          sed -i 's/^#\? \?android.archs = .*/android.archs = arm64-v8a/' buildozer.spec
+          sed -i 's/^#\? \?requirements = .*/requirements = python3,kivy,requests,certifi,chardet,idna,urllib3/' buildozer.spec
           sed -i 's/^#\? \?android.ndk = .*/android.ndk = 25b/' buildozer.spec
           sed -i 's/^#\? \?android.api = .*/android.api = 33/' buildozer.spec
-          sed -i 's/^#\? \?android.ndk_path = .*/android.ndk_path = /' buildozer.spec
-          sed -i 's/^#\? \?android.accept_sdk_license = .*/android.accept_sdk_license = True/' buildozer.spec
 
-      - name: Build APK
+      - name: Build APK (Optimized)
         run: |
-          rm -rf .buildozer
-          # إضافة متغير البيئة لضمان عدم توقف السيرفر للانتظار
-          export APP_ANDROID_ACCEPT_SDK_LICENSE=1
-          yes | buildozer android debug
+          # تشغيل البناء مع إظهار التفاصيل -v
+          export BUILDOZER_ALLOW_ORG_NAME_START=1
+          yes | buildozer -v android debug
       
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankak-Booster-Final
+          name: Bankak-App-Success
           path: bin/*.apk
