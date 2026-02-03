@@ -1,4 +1,4 @@
-name: Final Booster Build
+name: Final Success Build
 on: [push, workflow_dispatch]
 jobs:
   build:
@@ -6,34 +6,38 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Maximize Build Space
+      - name: Free Up Disk Space
         run: |
-          # تفريغ مساحة لضمان عدم انقطاع الاتصال (Broken pipe)
-          sudo rm -rf /usr/share/dotnet /opt/ghc "/usr/local/share/boost" /usr/local/lib/android
+          # تنظيف عميق جداً للسيرفر لضمان أكبر مساحة ممكنة
+          sudo rm -rf /usr/share/dotnet /opt/ghc "/usr/local/share/boost" /usr/local/lib/android /opt/hostedtoolcache/CodeQL
+          sudo docker image prune -a -f
           rm -rf .buildozer
 
-      - name: Install Tools
+      - name: Install System Dependencies
         run: |
           sudo apt update
           sudo apt install -y python3-pip build-essential git zip unzip zlib1g-dev libffi-dev libssl-dev autoconf automake libtool
           pip3 install --user --upgrade buildozer cython kivy
 
-      - name: Force Optimizations (Your Requirements)
+      - name: Force Configuration Update
         run: |
-          # تعديل ملف spec آلياً لتقليل حجم العمل وضمان النجاح
+          # تطبيق تقليل المعماريات وتنظيف المتطلبات آلياً كما طلبت
           sed -i 's/^#\? \?android.archs = .*/android.archs = arm64-v8a/' buildozer.spec
           sed -i 's/^#\? \?requirements = .*/requirements = python3,kivy,requests,certifi,chardet,idna,urllib3/' buildozer.spec
           sed -i 's/^#\? \?android.ndk = .*/android.ndk = 25b/' buildozer.spec
           sed -i 's/^#\? \?android.api = .*/android.api = 33/' buildozer.spec
+          sed -i 's/^#\? \?android.accept_sdk_license = .*/android.accept_sdk_license = True/' buildozer.spec
 
-      - name: Build APK (Optimized)
+      - name: Build APK with High Patience
         run: |
-          # تشغيل البناء مع إظهار التفاصيل -v
+          # متغيرات بيئية لمنع خطأ Broken pipe وزيادة استقرار الاتصال
           export BUILDOZER_ALLOW_ORG_NAME_START=1
+          export APP_ANDROID_ACCEPT_SDK_LICENSE=1
+          # تشغيل البناء مع تقليل عدد خيوط المعالجة لضمان عدم انهيار الذاكرة
           yes | buildozer -v android debug
       
-      - name: Upload APK
+      - name: Upload Finished APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankak-App-Success
+          name: Bankak-Booster-App
           path: bin/*.apk
