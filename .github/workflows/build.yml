@@ -1,4 +1,4 @@
-name: Auto-Adaptive Final Build
+name: Auto-Diagnostic Final Build
 on: [push, workflow_dispatch]
 jobs:
   build:
@@ -6,47 +6,46 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Maximize System Resources
+      - name: System Space Recovery
         run: |
-          # تنظيف شامل لتوفير أقصى مساحة ممكنة وتجنب Broken pipe
+          # تفريغ مساحة قصوى لمنع انقطاع الاتصال
           sudo rm -rf /usr/share/dotnet /opt/ghc "/usr/local/share/boost" /usr/local/lib/android
           rm -rf .buildozer
 
-      - name: Install Core Tools
+      - name: Install Tools
         run: |
           sudo apt update
           sudo apt install -y python3-pip build-essential git zip unzip zlib1g-dev libffi-dev libssl-dev autoconf automake libtool
           pip3 install --user --upgrade buildozer cython kivy
 
-      - name: Smart Settings Injection
+      - name: Inject Smart Settings
         run: |
-          # 1. إضافة المتطلبات التي طلبتها تلقائياً
-          sed -i 's/^#\? \?requirements = .*/requirements = python3,kivy,requests,certifi,chardet,idna,urllib3/' buildozer.spec
-          
-          # 2. تقليل المعماريات لضمان السرعة
+          # تقليل المعمارية لـ arm64-v8a فقط لسرعة البناء وتخفيف الحمل
           sed -i 's/^#\? \?android.archs = .*/android.archs = arm64-v8a/' buildozer.spec
-          
-          # 3. تحديث الإصدارات المطلوبة حالياً (NDK 25b و API 33)
+          sed -i 's/^#\? \?requirements = .*/requirements = python3,kivy,requests,certifi,chardet,idna,urllib3/' buildozer.spec
           sed -i 's/^#\? \?android.ndk = .*/android.ndk = 25b/' buildozer.spec
           sed -i 's/^#\? \?android.api = .*/android.api = 33/' buildozer.spec
           sed -i 's/^#\? \?android.accept_sdk_license = .*/android.accept_sdk_license = True/' buildozer.spec
 
-      - name: Build with Auto-Recovery Logic
+      - name: Build APK with Error Analysis
+        id: build_step
         run: |
-          # إعدادات تجاوز الأخطاء والموافقة التلقائية على أي تحديث يطلبه الموقع
           export APP_ANDROID_ACCEPT_SDK_LICENSE=1
           export BUILDOZER_ALLOW_ORG_NAME_START=1
           
-          # محاولة البناء مع إصلاح الأخطاء تلقائياً في حال طلب النظام إصداراً أحدث
-          yes | buildozer -v android debug || {
-            echo "⚠️ اكتشاف تعارض في الإصدارات.. جاري محاولة التصحيح التلقائي والمتابعة..."
-            # إذا فشل بسبب الـ API، سنقوم برفعه لأعلى درجة ممكنة (34) والمحاولة مرة أخرى دون إفشال العملية
-            sed -i 's/^android.api = .*/android.api = 34/' buildozer.spec
-            yes | buildozer -v android debug
+          # تشغيل البناء وحفظ النتائج في ملف للتحليل
+          yes | buildozer -v android debug > full_log.txt 2>&1 || {
+            echo "::error title=🚨 تشخيص الخطأ النهائي::فشل البناء. جارٍ تحليل السبب..."
+            echo "------------------- سبب الفشل الحقيقي -------------------"
+            # استخراج السطور التي تحتوي على أخطاء واضحة فقط
+            grep -iE "error|failed|target|missing|broken" full_log.txt | tail -n 15
+            echo "--------------------------------------------------------"
+            exit 1
           }
       
-      - name: Final APK Delivery
+      - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: Bankak-Booster-Ultra-Safe
+          name: Bankak-Success-App
           path: bin/*.apk
