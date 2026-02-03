@@ -1,49 +1,28 @@
-name: Surgical Recovery Build
-on: [push, workflow_dispatch]
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Extreme Space Cleanup
+      - name: Install Tools & Accept Licenses
         run: |
-          sudo rm -rf /usr/share/dotnet /opt/ghc "/usr/local/share/boost" /usr/local/lib/android /opt/hostedtoolcache
-          rm -rf .buildozer
-
-      - name: Manual NDK Pre-Setup
-        run: |
-          # تحميل الـ NDK يدوياً لتجنب انقطاع الأنبوب أثناء البناء التلقائي
-          wget -q https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
-          unzip -q android-ndk-r25b-linux.zip
-          echo "ANDROID_NDK_HOME=$(pwd)/android-ndk-r25b" >> $GITHUB_ENV
-
-      - name: Install Tools
-        run: |
+          sudo apt update
+          sudo apt install -y python3-pip build-essential git zip unzip zlib1g-dev libffi-dev libssl-dev autoconf automake libtool
           pip3 install --user --upgrade buildozer cython==0.29.33 kivy
-
-      - name: Force Fix Spec
-        run: |
-          # تقليل المتطلبات للصفر تقريباً لضمان المرور
-          sed -i 's/^#\? \?requirements = .*/requirements = python3,kivy/' buildozer.spec
-          sed -i 's/^#\? \?android.archs = .*/android.archs = arm64-v8a/' buildozer.spec
-          sed -i 's/^#\? \?android.api = .*/android.api = 31/' buildozer.spec
-          # ربط الـ NDK الذي حملناه يدوياً
-          sed -i "s|^#\? \?android.ndk_path = .*|android.ndk_path = $(pwd)/android-ndk-r25b|" buildozer.spec
-
-      - name: Build APK (Silent Mode)
-        run: |
-          export BUILDOZER_ALLOW_ORG_NAME_START=1
-          # استخدام وضع 'silent' لتقليل مخرجات السجل ومنع امتلاء الذاكرة
-          buildozer -v android debug | grep -v "Searching for" || true
-      
-      - name: Emergency Search for APK
-        run: |
-          # البحث عن أي ملف APK تم إنتاجه ووضعه في المجلد الرئيسي للرفع
-          find . -name "*.apk" -exec cp {} . \;
           
-      - name: Final Result Upload
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankak-Booster-Final
-          path: ./*.apk
+          # إجبار قبول الرخص يدوياً
+          mkdir -p ~/.android && touch ~/.android/repositories.cfg
+          yes | sdkmanager --licenses || true
+          
+          # إجبار تثبيت الإصدارات التي حددتها أنت بدقة (أمرك الأخير)
+          yes | sdkmanager "platforms;android-33" "build-tools;33.0.0" "ndk;25.2.9519653"
+
+      - name: Force Insert Config
+        run: |
+          # حقن الإعدادات داخل الملف لضمان عدم تجاوزها من قبل النظام
+          sed -i 's/^#\? \?android.api = .*/android.api = 33/' buildozer.spec
+          sed -i 's/^#\? \?android.ndk = .*/android.ndk = 25.2.9519653/' buildozer.spec
+          sed -i 's/^#\? \?android.build_tools_version = .*/android.build_tools_version = 33.0.0/' buildozer.spec
+          sed -i 's/^#\? \?android.archs = .*/android.archs = arm64-v8a/' buildozer.spec
+
+      - name: Build APK (Force Mode)
+        run: |
+          export APP_ANDROID_ACCEPT_SDK_LICENSE=1
+          export BUILDOZER_ALLOW_ORG_NAME_START=1
+          
+          # البناء مع معالجة خطأ "Broken pipe" عبر التنظيف التلقائي
+          yes | buildozer -v android debug || (buildozer android clean && yes | buildozer -v android debug)
