@@ -12,9 +12,9 @@ jobs:
           pip3 install --user --upgrade buildozer cython kivy
       - name: Build with Buildozer
         run: |
-          # هذا السطر هو السر: قبول الرخص داخل مجلد العمل الخاص بـ Buildozer
-          mkdir -p ~/.android && touch ~/.android/repositories.cfg
-          buildozer android debug || (yes | sdkmanager --licenses && buildozer android debug)
+          # تفعيل قبول الرخص تلقائياً داخل إعدادات buildozer
+          sed -i '# android.accept_sdk_license = False#android.accept_sdk_license = True#' buildozer.spec || true
+          buildozer android debug
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
