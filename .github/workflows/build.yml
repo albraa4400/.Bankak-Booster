@@ -1,28 +1,32 @@
-      - name: Install Tools & Accept Licenses
+name: Install Tools & Accept Licenses
         run: |
           sudo apt update
           sudo apt install -y python3-pip build-essential git zip unzip zlib1g-dev libffi-dev libssl-dev autoconf automake libtool
           pip3 install --user --upgrade buildozer cython==0.29.33 kivy
-          
-          # إجبار قبول الرخص يدوياً
           mkdir -p ~/.android && touch ~/.android/repositories.cfg
           yes | sdkmanager --licenses || true
-          
-          # إجبار تثبيت الإصدارات التي حددتها أنت بدقة (أمرك الأخير)
-          yes | sdkmanager "platforms;android-33" "build-tools;33.0.0" "ndk;25.2.9519653"
 
-      - name: Force Insert Config
+      # 3. حقن الإصدارات الدقيقة التي طلبتها أنت (الإجبار التقني)
+      - name: Force Insert Versions (NDK Full Version)
         run: |
-          # حقن الإعدادات داخل الملف لضمان عدم تجاوزها من قبل النظام
-          sed -i 's/^#\? \?android.api = .*/android.api = 33/' buildozer.spec
+          # حقن الرقم الدقيق لضمان عدم حدوث تعارض Aidl أو NDK Unsupported
           sed -i 's/^#\? \?android.ndk = .*/android.ndk = 25.2.9519653/' buildozer.spec
-          sed -i 's/^#\? \?android.build_tools_version = .*/android.build_tools_version = 33.0.0/' buildozer.spec
+          sed -i 's/^#\? \?android.api = .*/android.api = 33/' buildozer.spec
+          sed -i 's/^#\? \?android.minapi = .*/android.minapi = 21/' buildozer.spec
           sed -i 's/^#\? \?android.archs = .*/android.archs = arm64-v8a/' buildozer.spec
+          sed -i 's/^#\? \?android.acceptsdklicense = .*/android.acceptsdklicense = True/' buildozer.spec
 
+      # 4. بناء الـ APK مع معالجة الأخطاء آلياً
       - name: Build APK (Force Mode)
         run: |
-          export APP_ANDROID_ACCEPT_SDK_LICENSE=1
-          export BUILDOZER_ALLOW_ORG_NAME_START=1
+          export APPANDROIDACCEPTSDKLICENSE=1
+          export BUILDOZERALLOWORGNAMESTART=1
           
-          # البناء مع معالجة خطأ "Broken pipe" عبر التنظيف التلقائي
+          # تشغيل البناء مع محاولة الإنقاذ في حال حدوث Broken pipe
           yes | buildozer -v android debug || (buildozer android clean && yes | buildozer -v android debug)
+      
+      - name: Final Result Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankak-Booster-NDK-Fixed
+          path: bin/*.apk
