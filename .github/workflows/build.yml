@@ -13,7 +13,6 @@ jobs:
       - name: Build
         run: |
           buildozer init
-          # تعيين الملف المصدر الصحيح
           sed -i 's/source.include_exts = py,png,jpg,kv,atlas/source.include_exts = py/' buildozer.spec
           sed -i 's/#source.include_patterns = assets\/\*,images\/\*.png/source.filename = .gui_bank.py/' buildozer.spec
           buildozer android debug
