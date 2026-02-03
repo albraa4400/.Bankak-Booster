@@ -12,9 +12,10 @@ jobs:
           pip3 install --user --upgrade buildozer cython kivy
       - name: Build with Buildozer
         run: |
-          # تفعيل قبول الرخص تلقائياً داخل إعدادات buildozer
-          sed -i '# android.accept_sdk_license = False#android.accept_sdk_license = True#' buildozer.spec || true
-          buildozer android debug
+          # هذه الطريقة تضمن قبول الرخص داخل بيئة الأندرويد مباشرة
+          export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
+          export PATH=$PATH:$ANDROID_HOME/tools/bin
+          buildozer android debug || (yes | buildozer android debug)
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
