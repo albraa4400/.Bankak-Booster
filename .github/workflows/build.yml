@@ -1,4 +1,4 @@
-name: Global Path Recovery
+name: Manual SDK Independence
 on: [push, workflow_dispatch]
 jobs:
   build:
@@ -12,40 +12,41 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Light Space Clean
+      - name: Install Android SDK Manually
         run: |
-          # تنظيف حذر جداً للحفاظ على ملفات النظام الأساسية
-          sudo rm -rf /usr/share/dotnet /opt/ghc
-          rm -rf .buildozer
+          mkdir -p $HOME/android-sdk/cmdline-tools
+          cd $HOME/android-sdk/cmdline-tools
+          curl -O https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+          unzip -q commandlinetools-linux-9477386_latest.zip
+          mv cmdline-tools latest
+          # تعريف المتغيرات للخطوات القادمة في البيئة
+          echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
+          echo "PATH=$HOME/android-sdk/cmdline-tools/latest/bin:$HOME/android-sdk/platform-tools:$PATH" >> $GITHUB_ENV
 
-      - name: Fix Paths & Accept Licenses
+      - name: Accept Licenses & Install Components
+        run: |
+          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$PATH
+          yes | sdkmanager --licenses || true
+          sdkmanager "platforms;android-33" "build-tools;33.0.0" "ndk;25.2.9519653"
+
+      - name: Buildozer Setup
         run: |
           pip3 install --user --upgrade buildozer cython==0.29.33 kivy
-          
-          # استعادة مسارات أندرويد الضائعة لتعمل أداة sdkmanager
-          export ANDROID_HOME=$ANDROID_SDK_ROOT
-          export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/tools/bin:$ANDROID_HOME/platform-tools
-          
-          # استخدام المسار الكامل للأداة لضمان عملها وتجنب خطأ (Command not found)
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-33" "build-tools;33.0.0" "ndk;25.2.9519653"
-
-      - name: Force Spec Injection
-        run: |
+          # ربط buildozer بالـ SDK الذي قمت بتحميله يدوياً
+          sed -i "s|^#\? \?android.sdk_path = .*|android.sdk_path = $ANDROID_HOME|" buildozer.spec
+          sed -i "s|^#\? \?android.ndk_path = .*|android.ndk_path = $ANDROID_HOME/ndk/25.2.9519653|" buildozer.spec
           sed -i 's/^#\? \?android.api = .*/android.api = 33/' buildozer.spec
-          sed -i 's/^#\? \?android.ndk = .*/android.ndk = 25.2.9519653/' buildozer.spec
           sed -i 's/^#\? \?android.archs = .*/android.archs = arm64-v8a/' buildozer.spec
 
-      - name: Build APK (Aggressive Mode)
+      - name: Build APK
         run: |
           export BUILDOZER_ALLOW_ORG_NAME_START=1
-          # استخدام وضع صامت لتقليل فرص انكسار الأنبوب (Broken pipe)
           buildozer -v android debug || true 
 
-      - name: Global APK Search & Upload
+      - name: Final Artifact Upload
         uses: actions/upload-artifact@v4
         with:
-          name: Bankak-Booster-Final
+          name: Bankak-Booster-Manual-SDK
           path: |
             bin/*.apk
             .buildozer/android/platform/build-*/dists/*/bin/*.apk
