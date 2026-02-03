@@ -12,8 +12,9 @@ jobs:
           pip3 install --user --upgrade buildozer cython kivy
       - name: Build with Buildozer
         run: |
-          # تنظيف شامل وضمان تحديث الـ NDK إلى 25b كما طلب النظام
+          # تنظيف شامل قبل البدء لتجنب أخطاء الصور السابقة
           rm -rf .buildozer
+          # قبول الرخص وتشغيل البناء بصمت لتجنب Broken pipe
           yes | buildozer android debug
       - name: Upload APK
         uses: actions/upload-artifact@v4
