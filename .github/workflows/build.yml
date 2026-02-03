@@ -10,15 +10,11 @@ jobs:
           sudo apt update
           sudo apt install -y python3-pip build-essential git python3 zip unzip zlib1g-dev libffi-dev libssl-dev autoconf automake libtool
           pip3 install --user --upgrade buildozer cython kivy
-      - name: Setup Android SDK and Accept Licenses
-        run: |
-          mkdir -p ~/.android && touch ~/.android/repositories.cfg
-          yes | sdkmanager --licenses || true
       - name: Build with Buildozer
         run: |
-          # نستخدم أمر الحذف لضمان البدء من جديد بدون أخطاء قديمة
-          rm -rf .buildozer
-          buildozer android debug
+          # هذا السطر هو السر: قبول الرخص داخل مجلد العمل الخاص بـ Buildozer
+          mkdir -p ~/.android && touch ~/.android/repositories.cfg
+          buildozer android debug || (yes | sdkmanager --licenses && buildozer android debug)
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
