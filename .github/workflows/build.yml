@@ -1,73 +1,73 @@
-name: APK Final Precision 73
+name: Build APK
+
 on: [push, workflow_dispatch]
+
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v3
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          java-version: '17'
-          distribution: 'temurin'
+          python-version: "3.10"
+          cache: "pip"
 
-      - name: Install Tools
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install system dependencies
         run: |
           sudo apt update
-          sudo apt install -y git zip unzip build-essential libffi-dev libssl-dev autoconf automake libtool
-          python3 -m pip install --upgrade pip
-          pip install --retries 10 --timeout 120 buildozer cython==0.29.33 kivy
+          sudo apt install -y \
+            git zip unzip \
+            build-essential \
+            openjdk-17-jdk \
+            libffi-dev libssl-dev \
+            wget unzip
 
-      - name: Download Android NDK r25b (Your Improved Step)
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install --retries 10 --timeout 120 buildozer cython
+
+      - name: Download and set Android NDK r25b
         run: |
           cd $GITHUB_WORKSPACE
-          # استخدام wget مع -O لضمان تسمية الملف وتجنب أخطاء curl
           wget -q https://dl.google.com/android/repository/android-ndk-r25b-linux.zip -O android-ndk-r25b-linux.zip
           unzip -q android-ndk-r25b-linux.zip
-          # تم الإبقاء على الاسم الأصلي للمجلد ليتوافق مع إعدادات buildozer اللاحقة
-          echo "ANDROID_NDK_HOME=$GITHUB_WORKSPACE/android-ndk-r25b" >> $GITHUB_ENV
+          mv android-ndk-r25b android-ndk-r25b-linux
+          echo "ANDROID_NDK_HOME=$GITHUB_WORKSPACE/android-ndk-r25b-linux" >> $GITHUB_ENV
 
-      - name: Manual SDK Setup
+      - name: Accept Android SDK licenses and install Build Tools
         run: |
-          mkdir -p $HOME/android-sdk/cmdline-tools
-          cd $HOME/android-sdk/cmdline-tools
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O tools.zip
-          unzip -q tools.zip
-          mv cmdline-tools latest
-          echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
+          yes | sdkmanager --licenses
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;36.1.0"
 
-      - name: Inject & Verify Configuration
+      - name: Configure buildozer.spec paths
         run: |
-          # أوامرك الذكية للحقن والتحقق
           sed -i "s|^#\? *android.sdk_path *=.*|android.sdk_path = $ANDROID_HOME|" buildozer.spec
           sed -i "s|^#\? *android.ndk_path *=.*|android.ndk_path = $ANDROID_NDK_HOME|" buildozer.spec
-          sed -i 's/^#\? *android.api *=.*/android.api = 33/' buildozer.spec
-          sed -i 's/^#\? *android.ndk *=.*/android.ndk = 25b/' buildozer.spec
-          
-          echo "==== buildozer.spec paths validation ===="
+          echo "==== buildozer.spec paths ===="
           grep -E "android.(sdk|ndk)_path" -n buildozer.spec || true
 
       - name: Build APK
         run: |
-          export BUILDOZER_ALLOW_ORG_NAME_START=1
           buildozer -v android debug
 
-      - name: List generated files (Radar)
-        if: always()
+      - name: List APK files
         run: |
-          # أوامرك للكشف عن الملفات الناتجة
-          echo "==== Searching for Artifacts ===="
-          find . -name "*.apk"
-          find . -name "*.aab"
+          echo "==== bin folder ===="
+          ls -la bin || true
+          echo "==== Search APK ===="
+          find . -type f -name "*.apk" || true
 
-      - name: Upload Final Artifact
-        if: always()
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Bankak-Booster-Final-73
-          path: |
-            **/*.apk
-            **/*.aab
-          if-no-files-found: warn
+          name: Bankak-Booster-Package
+          path: bin/*.apk
+          if-no-files-found: error
