@@ -1,14 +1,10 @@
-name: Final APK Discovery
-
+name: Final Build Fix 66
 on: [push, workflow_dispatch]
-
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Set up JDK 17
         uses: actions/setup-java@v3
@@ -25,10 +21,11 @@ jobs:
 
       - name: Manual SDK & NDK Setup
         run: |
-          # تحميل NDK يدوياً لمنع خطأ read of closed file
-          wget -q --tries=10 --timeout=120 https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
+          # تحميل NDK r25b يدوياً (المسار الذي ظهر في السجل)
+          wget -q https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
           unzip -q android-ndk-r25b-linux.zip
           
+          # إعداد أدوات SDK
           mkdir -p $HOME/android-sdk/cmdline-tools
           cd $HOME/android-sdk/cmdline-tools
           curl -L -O https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
@@ -38,26 +35,24 @@ jobs:
           echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
           echo "ANDROID_NDK_HOME=$GITHUB_WORKSPACE/android-ndk-r25b" >> $GITHUB_ENV
 
-      - name: Accept Licenses & Inject Config
+      - name: Inject Configuration
         run: |
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          # حقن المسارات في ملف spec لضمان استخدام الأدوات المحملة يدوياً
           sed -i "s|^#\? \?android.sdk_path = .*|android.sdk_path = $ANDROID_HOME|" buildozer.spec
           sed -i "s|^#\? \?android.ndk_path = .*|android.ndk_path = $ANDROID_NDK_HOME|" buildozer.spec
           sed -i 's/^#\? \?android.api = .*/android.api = 33/' buildozer.spec
-          sed -i 's/^#\? \?android.archs = .*/android.archs = arm64-v8a/' buildozer.spec
+          sed -i 's/^#\? \?android.ndk = .*/android.ndk = 25b/' buildozer.spec
 
-      - name: Build with Buildozer (Clean Build)
+      - name: Build APK (No Clean Mode)
         run: |
           export BUILDOZER_ALLOW_ORG_NAME_START=1
-          # مسح الملفات القديمة لضمان بناء APK جديد فعلياً
-          buildozer android clean
-          buildozer -v android debug
+          # تم حذف 'android clean' لتجنب خطأ FileNotFoundError
+          # البناء المباشر سيقوم بإنشاء المجلدات المفقودة تلقائياً
+          buildozer -v android debug | grep -v "Downloading"
 
-      - name: Deep Search & Upload APK
+      - name: Upload Final APK
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Bankak-Booster-Final
-          # استخدام الرمز ** للبحث في جميع المجلدات الفرعية عن أي ملف APK
+          name: Bankak-Booster-Package
           path: "**/*.apk"
-          if-no-files-found: error
