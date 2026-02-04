@@ -1,4 +1,4 @@
-name: Final Build Fix 66
+name: APK Radar Build
 on: [push, workflow_dispatch]
 jobs:
   build:
@@ -12,7 +12,7 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Install dependencies
+      - name: Install Tools & Dependencies
         run: |
           sudo apt update
           sudo apt install -y git zip unzip build-essential libffi-dev libssl-dev autoconf automake libtool
@@ -21,38 +21,47 @@ jobs:
 
       - name: Manual SDK & NDK Setup
         run: |
-          # تحميل NDK r25b يدوياً (المسار الذي ظهر في السجل)
           wget -q https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
           unzip -q android-ndk-r25b-linux.zip
-          
-          # إعداد أدوات SDK
           mkdir -p $HOME/android-sdk/cmdline-tools
           cd $HOME/android-sdk/cmdline-tools
           curl -L -O https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
           unzip -q commandlinetools-linux-9477386_latest.zip
           mv cmdline-tools latest
-          
           echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
           echo "ANDROID_NDK_HOME=$GITHUB_WORKSPACE/android-ndk-r25b" >> $GITHUB_ENV
 
       - name: Inject Configuration
         run: |
-          # حقن المسارات في ملف spec لضمان استخدام الأدوات المحملة يدوياً
           sed -i "s|^#\? \?android.sdk_path = .*|android.sdk_path = $ANDROID_HOME|" buildozer.spec
           sed -i "s|^#\? \?android.ndk_path = .*|android.ndk_path = $ANDROID_NDK_HOME|" buildozer.spec
           sed -i 's/^#\? \?android.api = .*/android.api = 33/' buildozer.spec
           sed -i 's/^#\? \?android.ndk = .*/android.ndk = 25b/' buildozer.spec
 
-      - name: Build APK (No Clean Mode)
+      - name: Build APK (Aggressive Mode)
         run: |
           export BUILDOZER_ALLOW_ORG_NAME_START=1
-          # تم حذف 'android clean' لتجنب خطأ FileNotFoundError
-          # البناء المباشر سيقوم بإنشاء المجلدات المفقودة تلقائياً
-          buildozer -v android debug | grep -v "Downloading"
+          buildozer -v android debug
 
-      - name: Upload Final APK
+      # 🔍 جسر الرادار الذي اقترحته أنت (مهم جداً الآن)
+      - name: List generated files
+        if: always()
+        run: |
+          echo "==== Project files ===="
+          ls -la
+          echo "==== bin folder ===="
+          ls -la bin || true
+          echo "==== Search APK ===="
+          find . -type f -name "*.apk" || true
+          find . -type f -name "*.aab" || true
+
+      - name: Upload Final Artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: Bankak-Booster-Package
-          path: "**/*.apk"
+          # دمج فكرتك في البحث عن APK و AAB معاً
+          path: |
+            **/*.apk
+            **/*.aab
+          if-no-files-found: warn
