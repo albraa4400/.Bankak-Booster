@@ -1,4 +1,4 @@
-name: APK Precision Tracking 71
+name: APK Final Precision 73
 on: [push, workflow_dispatch]
 jobs:
   build:
@@ -20,10 +20,54 @@ jobs:
           python3 -m pip install --upgrade pip
           pip install --retries 10 --timeout 120 buildozer cython==0.29.33 kivy
 
-      - name: Manual SDK & NDK Setup
+      - name: Download Android NDK r25b (Your Improved Step)
         run: |
-          wget -q https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
+          cd $GITHUB_WORKSPACE
+          # استخدام wget مع -O لضمان تسمية الملف وتجنب أخطاء curl
+          wget -q https://dl.google.com/android/repository/android-ndk-r25b-linux.zip -O android-ndk-r25b-linux.zip
           unzip -q android-ndk-r25b-linux.zip
+          # تم الإبقاء على الاسم الأصلي للمجلد ليتوافق مع إعدادات buildozer اللاحقة
+          echo "ANDROID_NDK_HOME=$GITHUB_WORKSPACE/android-ndk-r25b" >> $GITHUB_ENV
+
+      - name: Manual SDK Setup
+        run: |
           mkdir -p $HOME/android-sdk/cmdline-tools
           cd $HOME/android-sdk/cmdline-tools
-          curl -L -O
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O tools.zip
+          unzip -q tools.zip
+          mv cmdline-tools latest
+          echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
+
+      - name: Inject & Verify Configuration
+        run: |
+          # أوامرك الذكية للحقن والتحقق
+          sed -i "s|^#\? *android.sdk_path *=.*|android.sdk_path = $ANDROID_HOME|" buildozer.spec
+          sed -i "s|^#\? *android.ndk_path *=.*|android.ndk_path = $ANDROID_NDK_HOME|" buildozer.spec
+          sed -i 's/^#\? *android.api *=.*/android.api = 33/' buildozer.spec
+          sed -i 's/^#\? *android.ndk *=.*/android.ndk = 25b/' buildozer.spec
+          
+          echo "==== buildozer.spec paths validation ===="
+          grep -E "android.(sdk|ndk)_path" -n buildozer.spec || true
+
+      - name: Build APK
+        run: |
+          export BUILDOZER_ALLOW_ORG_NAME_START=1
+          buildozer -v android debug
+
+      - name: List generated files (Radar)
+        if: always()
+        run: |
+          # أوامرك للكشف عن الملفات الناتجة
+          echo "==== Searching for Artifacts ===="
+          find . -name "*.apk"
+          find . -name "*.aab"
+
+      - name: Upload Final Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bankak-Booster-Final-73
+          path: |
+            **/*.apk
+            **/*.aab
+          if-no-files-found: warn
