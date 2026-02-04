@@ -1,5 +1,4 @@
-
-name: APK Radar Build 69
+name: APK Precision Tracking 71
 on: [push, workflow_dispatch]
 jobs:
   build:
@@ -7,9 +6,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          # التأكد من جلب كامل الملفات بما فيها المجلدات الفرعية
-          fetch-depth: 0 
 
       - name: Set up JDK 17
         uses: actions/setup-java@v3
@@ -17,12 +13,11 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Install Tools & Dependencies
+      - name: Install Tools
         run: |
           sudo apt update
           sudo apt install -y git zip unzip build-essential libffi-dev libssl-dev autoconf automake libtool
           python3 -m pip install --upgrade pip
-          # استخدام المتطلبات التي حددتها أنت سابقاً
           pip install --retries 10 --timeout 120 buildozer cython==0.29.33 kivy
 
       - name: Manual SDK & NDK Setup
@@ -31,15 +26,4 @@ jobs:
           unzip -q android-ndk-r25b-linux.zip
           mkdir -p $HOME/android-sdk/cmdline-tools
           cd $HOME/android-sdk/cmdline-tools
-          curl -L -O https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
-          unzip -q commandlinetools-linux-9477386_latest.zip
-          mv cmdline-tools latest
-          echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
-          echo "ANDROID_NDK_HOME=$GITHUB_WORKSPACE/android-ndk-r25b" >> $GITHUB_ENV
-
-      - name: Inject Configuration
-        run: |
-          # إعداد ملف spec بدقة بناءً على المسارات اليدوية
-          sed -i "s|^#\? \?android.sdk_path = .*|android.sdk_path = $ANDROID_HOME|" buildozer.spec
-          sed -i "s|^#\? \?android.ndk_path = .*|android.ndk_path = $ANDROID_NDK_HOME|" buildozer.spec
-          sed -i 's/^#
+          curl -L -O
