@@ -1,4 +1,4 @@
-name: Build APK Optimized
+name: Final APK Discovery
 
 on: [push, workflow_dispatch]
 
@@ -16,55 +16,48 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Install dependencies & Tools
+      - name: Install dependencies
         run: |
           sudo apt update
           sudo apt install -y git zip unzip build-essential libffi-dev libssl-dev autoconf automake libtool
-
-          # تحديث pip واستخدام المهلة التي اقترحتها أنت لمنع انقطاع الاتصال
           python3 -m pip install --upgrade pip
           pip install --retries 10 --timeout 120 buildozer cython==0.29.33 kivy
 
       - name: Manual SDK & NDK Setup
         run: |
-          # تحميل NDK يدوياً لمنع خطأ "read of closed file" الناتج عن فشل تحميل buildozer التلقائي
+          # تحميل NDK يدوياً لمنع خطأ read of closed file
           wget -q --tries=10 --timeout=120 https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
           unzip -q android-ndk-r25b-linux.zip
           
-          # تحميل أدوات SDK يدوياً لضمان وجود sdkmanager (حل خطأ 127)
           mkdir -p $HOME/android-sdk/cmdline-tools
           cd $HOME/android-sdk/cmdline-tools
           curl -L -O https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
           unzip -q commandlinetools-linux-9477386_latest.zip
           mv cmdline-tools latest
           
-          # تعريف المسارات في بيئة GitHub لضمان استمراريتها بين الخطوات
           echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
           echo "ANDROID_NDK_HOME=$GITHUB_WORKSPACE/android-ndk-r25b" >> $GITHUB_ENV
 
       - name: Accept Licenses & Inject Config
         run: |
-          # قبول الرخص باستخدام المسار اليدوي لضمان النجاح
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-          
-          # إجبار Buildozer على استخدام المسارات التي قمنا بتحميلها بدقة
           sed -i "s|^#\? \?android.sdk_path = .*|android.sdk_path = $ANDROID_HOME|" buildozer.spec
           sed -i "s|^#\? \?android.ndk_path = .*|android.ndk_path = $ANDROID_NDK_HOME|" buildozer.spec
           sed -i 's/^#\? \?android.api = .*/android.api = 33/' buildozer.spec
-          sed -i 's/^#\? \?android.ndk = .*/android.ndk = 25b/' buildozer.spec
           sed -i 's/^#\? \?android.archs = .*/android.archs = arm64-v8a/' buildozer.spec
 
-      - name: Build with Buildozer
+      - name: Build with Buildozer (Clean Build)
         run: |
           export BUILDOZER_ALLOW_ORG_NAME_START=1
-          # استخدام grep لتصفية السجلات وحماية "الأنبوب المنكسر" من الازدحام
-          buildozer -v android debug | grep -v "Downloading"
+          # مسح الملفات القديمة لضمان بناء APK جديد فعلياً
+          buildozer android clean
+          buildozer -v android debug
 
-      - name: Upload APK
-        if: always() # لضمان محاولة الرفع حتى لو ظهر خطأ في الخطوة السابقة
+      - name: Deep Search & Upload APK
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Bankak-App
-          path: |
-            bin/*.apk
-            .buildozer/android/platform/build-*/dists/*/bin/*.apk
+          name: Bankak-Booster-Final
+          # استخدام الرمز ** للبحث في جميع المجلدات الفرعية عن أي ملف APK
+          path: "**/*.apk"
+          if-no-files-found: error
