@@ -1,62 +1,45 @@
-name: Build APK
 
+name: APK Radar Build 69
 on: [push, workflow_dispatch]
-
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
-          cache: "pip"
+          # التأكد من جلب كامل الملفات بما فيها المجلدات الفرعية
+          fetch-depth: 0 
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
 
-      - name: Install system dependencies
+      - name: Install Tools & Dependencies
         run: |
           sudo apt update
-          sudo apt install -y \
-            git zip unzip \
-            build-essential \
-            openjdk-17-jdk \
-            libffi-dev libssl-dev
+          sudo apt install -y git zip unzip build-essential libffi-dev libssl-dev autoconf automake libtool
+          python3 -m pip install --upgrade pip
+          # استخدام المتطلبات التي حددتها أنت سابقاً
+          pip install --retries 10 --timeout 120 buildozer cython==0.29.33 kivy
 
-      - name: Install Python dependencies
+      - name: Manual SDK & NDK Setup
         run: |
-          python -m pip install --upgrade pip
-          pip install --retries 10 --timeout 120 buildozer cython
+          wget -q https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
+          unzip -q android-ndk-r25b-linux.zip
+          mkdir -p $HOME/android-sdk/cmdline-tools
+          cd $HOME/android-sdk/cmdline-tools
+          curl -L -O https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+          unzip -q commandlinetools-linux-9477386_latest.zip
+          mv cmdline-tools latest
+          echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
+          echo "ANDROID_NDK_HOME=$GITHUB_WORKSPACE/android-ndk-r25b" >> $GITHUB_ENV
 
-      - name: Accept Android SDK licenses + Install Build Tools
+      - name: Inject Configuration
         run: |
-          yes | sdkmanager --licenses
-
-          # Install required SDK packages (AIDL موجود هنا)
-          sdkmanager --install \
-            "platform-tools" \
-            "platforms;android-34" \
-            "build-tools;36.1.0"
-
-      - name: Build APK
-        run: |
-          buildozer -v android debug
-
-      - name: List APK files
-        run: |
-          echo "==== bin folder ===="
-          ls -la bin || true
-          echo "==== Search APK ===="
-          find . -type f -name "*.apk" || true
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: Bankak-Booster-Package
-          path: bin/*.apk
-          if-no-files-found: error
+          # إعداد ملف spec بدقة بناءً على المسارات اليدوية
+          sed -i "s|^#\? \?android.sdk_path = .*|android.sdk_path = $ANDROID_HOME|" buildozer.spec
+          sed -i "s|^#\? \?android.ndk_path = .*|android.ndk_path = $ANDROID_NDK_HOME|" buildozer.spec
+          sed -i 's/^#
