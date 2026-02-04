@@ -1,4 +1,4 @@
-name: Manual SDK Independence
+name: Manual SDK Final Fix
 on: [push, workflow_dispatch]
 jobs:
   build:
@@ -12,41 +12,45 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Install Android SDK Manually
+      - name: Manual SDK Installation
         run: |
+          # تحميل أدوات أندرويد يدوياً لضمان وجودها في المسار
           mkdir -p $HOME/android-sdk/cmdline-tools
           cd $HOME/android-sdk/cmdline-tools
           curl -O https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
           unzip -q commandlinetools-linux-9477386_latest.zip
           mv cmdline-tools latest
-          # تعريف المتغيرات للخطوات القادمة في البيئة
+          
+          # إعداد المسارات بشكل قطعي
           echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
           echo "PATH=$HOME/android-sdk/cmdline-tools/latest/bin:$HOME/android-sdk/platform-tools:$PATH" >> $GITHUB_ENV
 
       - name: Accept Licenses & Install Components
         run: |
-          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$PATH
-          yes | sdkmanager --licenses || true
-          sdkmanager "platforms;android-33" "build-tools;33.0.0" "ndk;25.2.9519653"
+          # استخدام المسار المطلق للأداة لضمان عدم ظهور "command not found"
+          yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-33" "build-tools;33.0.0" "ndk;25.2.9519653"
 
       - name: Buildozer Setup
         run: |
           pip3 install --user --upgrade buildozer cython==0.29.33 kivy
-          # ربط buildozer بالـ SDK الذي قمت بتحميله يدوياً
-          sed -i "s|^#\? \?android.sdk_path = .*|android.sdk_path = $ANDROID_HOME|" buildozer.spec
-          sed -i "s|^#\? \?android.ndk_path = .*|android.ndk_path = $ANDROID_HOME/ndk/25.2.9519653|" buildozer.spec
+          # ربط buildozer بالمسارات اليدوية التي أنشأناها
+          sed -i "s|^#\? \?android.sdk_path = .*|android.sdk_path = $HOME/android-sdk|" buildozer.spec
           sed -i 's/^#\? \?android.api = .*/android.api = 33/' buildozer.spec
+          sed -i 's/^#\? \?android.ndk = .*/android.ndk = 25.2.9519653/' buildozer.spec
           sed -i 's/^#\? \?android.archs = .*/android.archs = arm64-v8a/' buildozer.spec
 
       - name: Build APK
         run: |
           export BUILDOZER_ALLOW_ORG_NAME_START=1
-          buildozer -v android debug || true 
-
+          # تشغيل البناء العادي (بدون إجبار) لرؤية الخطأ الحقيقي إن وُجد
+          buildozer -v android debug
+      
       - name: Final Artifact Upload
+        if: always() # سيحاول الرفع حتى لو فشل البناء لنرى ماذا نتج
         uses: actions/upload-artifact@v4
         with:
-          name: Bankak-Booster-Manual-SDK
+          name: Bankak-App-Debug
           path: |
             bin/*.apk
             .buildozer/android/platform/build-*/dists/*/bin/*.apk
